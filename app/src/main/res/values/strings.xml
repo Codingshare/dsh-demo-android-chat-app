@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">demo-chat-app</string>
-    
+
     <!-- Strings related to login -->
     <string name="prompt_email">Email</string>
     <string name="prompt_password">Password (optional)</string>
@@ -13,4 +13,7 @@
     <string name="permission_rationale">"Contacts permissions are needed for providing email
         completions."
     </string>
+
+    <string name="dsh_login_url">ws://154.dsh.cloud?apiKey=b0011291-6132-4532-9c58-fb7989fc8ac8</string>
+    <string name="dsh_api_key">b0011291-6132-4532-9c58-fb7989fc8ac8</string>
 </resources>

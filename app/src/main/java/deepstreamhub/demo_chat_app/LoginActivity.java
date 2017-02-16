@@ -3,6 +3,8 @@ package deepstreamhub.demo_chat_app;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
@@ -19,6 +21,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -28,28 +31,42 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
-import java.util.ArrayList;
-import java.util.List;
 
-import static android.Manifest.permission.READ_CONTACTS;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+
+import org.json.JSONException;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.ArrayList;
+
+import javax.net.ssl.HttpsURLConnection;
+
+import io.deepstream.ConnectionState;
+import io.deepstream.ConnectionStateListener;
+import io.deepstream.DeepstreamClient;
+import io.deepstream.DeepstreamFactory;
+import io.deepstream.DeepstreamRuntimeErrorHandler;
+import io.deepstream.Event;
+import io.deepstream.List;
+import io.deepstream.LoginResult;
+import io.deepstream.Record;
+import io.deepstream.Topic;
+
 
 /**
  * A login screen that offers login via email/password.
  */
-public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<Cursor> {
+public class LoginActivity extends AppCompatActivity {
 
-    /**
-     * Id to identity READ_CONTACTS permission request.
-     */
-    private static final int REQUEST_READ_CONTACTS = 0;
-
-    /**
-     * A dummy authentication store containing known user names and passwords.
-     * TODO: remove after connecting to a real authentication system.
-     */
-    private static final String[] DUMMY_CREDENTIALS = new String[]{
-            "foo@example.com:hello", "bar@example.com:world"
-    };
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
      */
@@ -60,14 +77,24 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
     private EditText mPasswordView;
     private View mProgressView;
     private View mLoginFormView;
+    private Context ctx;
+    private DeepstreamFactory deepstreamFactory;
+    private DeepstreamClient client;
+    private StateRegistry stateRegistry;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+
+        ctx = getApplicationContext();
+        deepstreamFactory = DeepstreamFactory.getInstance();
+        stateRegistry = StateRegistry.getInstance();
+
+        stateRegistry.setGson(new Gson());
+
         // Set up the login form.
         mEmailView = (AutoCompleteTextView) findViewById(R.id.email);
-        populateAutoComplete();
 
         mPasswordView = (EditText) findViewById(R.id.password);
         mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
@@ -91,49 +118,6 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
 
         mLoginFormView = findViewById(R.id.login_form);
         mProgressView = findViewById(R.id.login_progress);
-    }
-
-    private void populateAutoComplete() {
-        if (!mayRequestContacts()) {
-            return;
-        }
-
-        getLoaderManager().initLoader(0, null, this);
-    }
-
-    private boolean mayRequestContacts() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return true;
-        }
-        if (checkSelfPermission(READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-            return true;
-        }
-        if (shouldShowRequestPermissionRationale(READ_CONTACTS)) {
-            Snackbar.make(mEmailView, R.string.permission_rationale, Snackbar.LENGTH_INDEFINITE)
-                    .setAction(android.R.string.ok, new View.OnClickListener() {
-                        @Override
-                        @TargetApi(Build.VERSION_CODES.M)
-                        public void onClick(View v) {
-                            requestPermissions(new String[]{READ_CONTACTS}, REQUEST_READ_CONTACTS);
-                        }
-                    });
-        } else {
-            requestPermissions(new String[]{READ_CONTACTS}, REQUEST_READ_CONTACTS);
-        }
-        return false;
-    }
-
-    /**
-     * Callback received when a permissions request has been completed.
-     */
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        if (requestCode == REQUEST_READ_CONTACTS) {
-            if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                populateAutoComplete();
-            }
-        }
     }
 
 
@@ -188,6 +172,7 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             mAuthTask.execute((Void) null);
         }
     }
+
     private boolean isEmailValid(String email) {
         //TODO: Replace this with your own logic
         return email.contains("@");
@@ -234,58 +219,51 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         }
     }
 
-    @Override
-    public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
-        return new CursorLoader(this,
-                // Retrieve data rows for the device user's 'profile' contact.
-                Uri.withAppendedPath(ContactsContract.Profile.CONTENT_URI,
-                        ContactsContract.Contacts.Data.CONTENT_DIRECTORY), ProfileQuery.PROJECTION,
+    private void createUserAccount(JsonObject credentials) {
+        Log.w("dsh", credentials.get("email") + " not logged in, creating user account");
 
-                // Select only email addresses.
-                ContactsContract.Contacts.Data.MIMETYPE +
-                        " = ?", new String[]{ContactsContract.CommonDataKinds.Email
-                                                                     .CONTENT_ITEM_TYPE},
+        User user;
+        URL url = null;
+        HttpURLConnection conn = null;
+        BufferedWriter writer;
+        BufferedReader reader;
 
-                // Show primary email addresses first. Note that there won't be
-                // a primary email address if the user hasn't specified one.
-                ContactsContract.Contacts.Data.IS_PRIMARY + " DESC");
-    }
+        try {
+            String endpoint = "https://api.dsh.cloud/api/v1/user-auth/signup/" + ctx.getString(R.string.dsh_api_key);
+            url = new URL(endpoint);
 
-    @Override
-    public void onLoadFinished(Loader<Cursor> cursorLoader, Cursor cursor) {
-        List<String> emails = new ArrayList<>();
-        cursor.moveToFirst();
-        while (!cursor.isAfterLast()) {
-            emails.add(cursor.getString(ProfileQuery.ADDRESS));
-            cursor.moveToNext();
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setDoOutput(true);
+            conn.setDoInput(true);
+
+            writer = new BufferedWriter(new OutputStreamWriter(conn.getOutputStream()));
+            Log.w("dsh", "writing " + credentials.toString() + " to " + endpoint);
+            writer.write(credentials.toString());
+            writer.flush();
+
+            int responseCode=conn.getResponseCode();
+
+            String response = "";
+            if (responseCode == 201) {
+                String line;
+                reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                while ((line=reader.readLine()) != null) {
+                    response+=line;
+                }
+                Log.w("dsh", "response data " + response);
+
+                writer.close();
+                reader.close();
+                conn.disconnect();
+            }
+            else {
+                Log.w("dsh", "response code received " + responseCode);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        addEmailsToAutoComplete(emails);
-    }
-
-    @Override
-    public void onLoaderReset(Loader<Cursor> cursorLoader) {
-
-    }
-
-    private interface ProfileQuery {
-        String[] PROJECTION = {
-                ContactsContract.CommonDataKinds.Email.ADDRESS,
-                ContactsContract.CommonDataKinds.Email.IS_PRIMARY,
-        };
-
-        int ADDRESS = 0;
-        int IS_PRIMARY = 1;
-    }
-
-
-    private void addEmailsToAutoComplete(List<String> emailAddressCollection) {
-        //Create adapter to tell the AutoCompleteTextView what to show in its dropdown list.
-        ArrayAdapter<String> adapter =
-                new ArrayAdapter<>(LoginActivity.this,
-                        android.R.layout.simple_dropdown_item_1line, emailAddressCollection);
-
-        mEmailView.setAdapter(adapter);
     }
 
     /**
@@ -294,34 +272,62 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
      */
     public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
 
-        private final String mEmail;
-        private final String mPassword;
+        private final JsonObject credentials;
 
         UserLoginTask(String email, String password) {
-            mEmail = email;
-            mPassword = password;
+            credentials = new JsonObject();
+            credentials.addProperty("email", email);
+            credentials.addProperty("type", "email");
+            credentials.addProperty("password", password);
         }
 
         @Override
         protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
 
+            LoginResult result;
+
+            String endpointUrl = ctx.getString(R.string.dsh_login_url);
             try {
-                // Simulate network access.
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
+                Log.w("dsh", "connecting client on url: " + endpointUrl);
+                client = deepstreamFactory.getClient(endpointUrl);
+            } catch (URISyntaxException e1) {
+                Log.w("dsh", "error connecting to dsh");
                 return false;
             }
 
-            for (String credential : DUMMY_CREDENTIALS) {
-                String[] pieces = credential.split(":");
-                if (pieces[0].equals(mEmail)) {
-                    // Account exists, return true if the password matches.
-                    return pieces[1].equals(mPassword);
+            client.addConnectionChangeListener(new ConnectionStateListener() {
+                @Override
+                public void connectionStateChanged(ConnectionState connectionState) {
+                    Log.w("dsh", connectionState.toString());
+                }
+            });
+
+            result = client.login(credentials);
+
+            if (!result.loggedIn()) {
+                Log.w("dsh", credentials.get("email") + " failed to login");
+                createUserAccount(credentials);
+
+                result = client.login(credentials);
+
+                if (!result.loggedIn()) {
+                    return false;
                 }
             }
 
-            // TODO: register the new account here.
+            JsonObject clientData = (JsonObject) stateRegistry.getGson().toJsonTree(result.getData());
+            Log.w("dsh", "received client data " + clientData.toString());
+            String userId = clientData.get("id").getAsString();
+            String email = credentials.get("email").getAsString();
+
+            stateRegistry.setUserId(userId);
+
+            Record record = client.record.getRecord("users/" + userId);
+            record.set("email", email);
+
+            List users = client.record.getList("users");
+            users.addEntry(userId);
+
             return true;
         }
 
@@ -331,9 +337,10 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             showProgress(false);
 
             if (success) {
-                finish();
+                Intent intent = new Intent(ctx, ChatOverviewActivity.class);
+                startActivity(intent);
             } else {
-                mPasswordView.setError(getString(R.string.error_incorrect_password));
+                mPasswordView.setError("An error occurred connecting to deepstreamHub");
                 mPasswordView.requestFocus();
             }
         }
