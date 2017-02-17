@@ -10,10 +10,12 @@ public class User {
 
     private String id;
     private String email;
+    private boolean online;
 
-    public User(String id, String email) {
+    public User(String id, String email, boolean online) {
         this.id = id;
         this.email = email;
+        this.online = online;
     }
 
     public String getId() {
@@ -22,5 +24,13 @@ public class User {
 
     public String getEmail() {
         return email;
+    }
+
+    public boolean isOnline() {
+        return online;
+    }
+
+    public void setOnline(boolean online) {
+        this.online = online;
     }
 }

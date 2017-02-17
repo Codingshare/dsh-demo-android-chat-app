@@ -322,8 +322,9 @@ public class LoginActivity extends AppCompatActivity {
 
             stateRegistry.setUserId(userId);
 
+            User user = new User(userId, email, true);
             Record record = client.record.getRecord("users/" + userId);
-            record.set("email", email);
+            record.set(stateRegistry.getGson().toJsonTree(user));
 
             List users = client.record.getList("users");
             users.addEntry(userId);
