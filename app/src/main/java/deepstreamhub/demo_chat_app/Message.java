@@ -1,25 +1,24 @@
 package deepstreamhub.demo_chat_app;
 
-/**
- * Created by alexharley on 16/02/17.
- */
 
 public class Message {
 
-    private String writer;
+    private String email;
     private String content;
+    private String id;
 
-    public Message(String writer, String content) {
-        this.writer = writer;
+    public Message(String email, String content, String id) {
+        this.email = email;
         this.content = content;
+        this.id = id;
     }
 
-    public String getWriter() {
-        return writer;
+    public String getWriterEmail() {
+        return email;
     }
 
-    public void setWriter(String writer) {
-        this.writer = writer;
+    public void setWriterEmail(String writerEmail) {
+        this.email = email;
     }
 
     public String getContent() {
@@ -28,5 +27,22 @@ public class Message {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getWriterId() {
+        return id;
+    }
+
+    public void setWriterId(String id) {
+        this.id = id;
+    }
+
+    @Override
+    public String toString() {
+        return "Message{" +
+                "email='" + email + '\'' +
+                ", content='" + content + '\'' +
+                ", id='" + id + '\'' +
+                '}';
     }
 }

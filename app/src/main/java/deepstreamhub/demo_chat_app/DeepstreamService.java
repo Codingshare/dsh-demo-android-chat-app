@@ -1,8 +1,8 @@
 package deepstreamhub.demo_chat_app;
 
-import java.net.URISyntaxException;
-
 import io.deepstream.DeepstreamClient;
+
+import java.net.URISyntaxException;
 
 /**
  * Created by alexharley on 16/02/17.

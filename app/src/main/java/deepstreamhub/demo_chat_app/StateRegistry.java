@@ -2,7 +2,7 @@ package deepstreamhub.demo_chat_app;
 
 import com.google.gson.Gson;
 
-import io.deepstream.Record;
+import io.deepstream.List;
 
 /**
  * Created by alexharley on 16/02/17.
@@ -17,8 +17,10 @@ public class StateRegistry {
     }
 
     private String userId;
+    private String email;
     private Gson gson;
-    private Record currentChatRecord;
+    private List currentChatList;
+    private String currentChatName;
 
     StateRegistry() {
     }
@@ -39,11 +41,27 @@ public class StateRegistry {
         this.gson = gson;
     }
 
-    public Record getCurrentChatRecord() {
-        return currentChatRecord;
+    public List getCurrentChatList() {
+        return currentChatList;
     }
 
-    public void setCurrentChatRecord(Record currentChatRecord) {
-        this.currentChatRecord = currentChatRecord;
+    public void setCurrentChatList(List currentChatList) {
+        this.currentChatList = currentChatList;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getCurrentChatName() {
+        return currentChatName;
+    }
+
+    public void setCurrentChatName(String currentChatName) {
+        this.currentChatName = currentChatName;
     }
 }

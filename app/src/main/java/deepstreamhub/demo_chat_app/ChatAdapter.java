@@ -1,6 +1,7 @@
 package deepstreamhub.demo_chat_app;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,9 +10,6 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
-/**
- * Created by alexharley on 16/02/17.
- */
 
 public class ChatAdapter extends ArrayAdapter {
     public ChatAdapter(Context context, ArrayList<Message> messages) {
@@ -24,14 +22,14 @@ public class ChatAdapter extends ArrayAdapter {
         Message message = (Message) getItem(position);
 
         if (convertView == null) {
-            convertView = LayoutInflater.from(getContext()).inflate(R.layout.item_chat_entry, parent, false);
+            convertView = LayoutInflater.from(getContext()).inflate(R.layout.item_chat_entry, null);
         }
 
         TextView contents = (TextView) convertView.findViewById(R.id.contents);
-        TextView writer = (TextView) convertView.findViewById(R.id.writer);
-
+        TextView writer = (TextView) convertView.findViewById(R.id.writerEmail);
+        Log.w("dsh", "getView(): " + message.getContent());
         contents.setText(message.getContent());
-        writer.setText(message.getWriter());
+        writer.setText(message.getWriterEmail());
 
         return convertView;
     }

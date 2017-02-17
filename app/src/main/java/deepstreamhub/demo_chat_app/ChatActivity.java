@@ -1,35 +1,20 @@
 package deepstreamhub.demo_chat_app;
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
-
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-
-import org.json.JSONArray;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 
-import io.deepstream.DeepstreamClient;
-import io.deepstream.DeepstreamFactory;
-import io.deepstream.List;
-import io.deepstream.ListEntryChangedListener;
-import io.deepstream.Record;
-import io.deepstream.RecordPathChangedCallback;
-
-/**
- * Created by alexharley on 16/02/17.
- */
 
 public class ChatActivity extends AppCompatActivity {
 
@@ -37,6 +22,8 @@ public class ChatActivity extends AppCompatActivity {
     private DeepstreamClient client;
     private Context ctx;
     private StateRegistry stateRegistry;
+    private Button postButton;
+    private EditText textField;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -47,9 +34,15 @@ public class ChatActivity extends AppCompatActivity {
         factory = DeepstreamFactory.getInstance();
         stateRegistry = StateRegistry.getInstance();
 
+        postButton = (Button) findViewById(R.id.post);
+        textField = (EditText) findViewById(R.id.input_message);
+
         Bundle extras = getIntent().getExtras();
 
         String userId = extras.getString("userId");
+
+        Log.w("dsh", "my id: " + stateRegistry.getUserId());
+        Log.w("dsh", "chatting to: " + userId);
 
         try {
             client = factory.getClient(ctx.getString(R.string.dsh_login_url)); // todo replace this with getClient()
@@ -57,33 +50,38 @@ public class ChatActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        String chatList = stateRegistry.getUserId() + "::" + userId;
+        String myId = stateRegistry.getUserId();
 
-        final List chatHistory = client.record.getList(chatList);
+        // list is either myId::userId or userId::myId
+        String chatName = myId + "::" + userId;
+        List chatList = client.record.getList(chatName);
 
-        String[] entries = chatHistory.getEntries();
-
-        Log.w("dsh", entries.length + " entries in chat: " + chatList);
-
-        Record chatRecord;
-        if (entries.length == 0) {
-            chatRecord = client.record.getRecord(chatList + "/" + 0);
-            chatRecord.set("messages", new Message[]{});
-            stateRegistry.setCurrentChatRecord(chatRecord);
-        } else {
-            String latestChat = entries[entries.length - 1];
-            chatRecord = client.record.getRecord(latestChat);
+        if (chatList.isEmpty()) {
+            chatName = userId + "::" + myId;
         }
-        stateRegistry.setCurrentChatRecord(chatRecord);
 
-        JsonArray jsonMessages = chatRecord.get("messages").getAsJsonArray();
+        chatList = client.record.getList(chatName);
+
+        if (chatList.isEmpty()) {
+            initialiseChat(chatName, chatList);
+        }
+
+        stateRegistry.setCurrentChatName(chatName);
+        stateRegistry.setCurrentChatList(chatList);
+
+        String[] entries = chatList.getEntries();
+        Log.w("dsh", entries.length + " entries in chat: " + chatName);
+        Log.w("dsh", Arrays.toString(entries));
         final ArrayList<Message> messages = new ArrayList<>();
 
-        for (JsonElement j : jsonMessages) {
-            JsonObject json = j.getAsJsonObject();
+        for (String message : entries) {
+            Record msgRecord = client.record.getRecord(message);
+            JsonObject msgJson = msgRecord.get().getAsJsonObject();
+            Log.w("dsh", "message: " + msgJson.toString());
             Message m = new Message(
-                    json.get("writer").getAsString(),
-                    json.get("contents").getAsString()
+                    msgJson.get("email").getAsString(),
+                    msgJson.get("content").getAsString(),
+                    msgJson.get("id").getAsString()
             );
             messages.add(m);
         }
@@ -93,26 +91,70 @@ public class ChatActivity extends AppCompatActivity {
         final ListView listView = (ListView) findViewById(R.id.chat_list);
         listView.setAdapter(adapter);
 
-        chatRecord.subscribe("messages", new RecordPathChangedCallback() {
+        chatList.subscribe(new ListEntryChangedListener() {
             @Override
-            public void onRecordPathChanged(String recordName, String path, JsonElement data) {
-                // either entry added or entry modified
-                Record currentChatRecord = stateRegistry.getCurrentChatRecord();
-                JsonArray jsonMessages = currentChatRecord.get("messages").getAsJsonArray();
+            public void onEntryAdded(String listName, String entry, int position) {
+                Log.w("dsh", "message added " + entry);
+                Record record = client.record.getRecord(listName + "/" + entry);
+                JsonObject msgJson = record.get().getAsJsonObject();
+                Message message = new Message(
+                        msgJson.get("email").getAsString(),
+                        msgJson.get("content").getAsString(),
+                        msgJson.get("id").getAsString()
+                );
+                Log.w("dsh", "new message " + message.toString());
+                messages.add(message);
+                adapter.add(message);
+            }
 
-                if (jsonMessages.size() == jsonMessages.size()) {
-                    Log.w("dsh", "list entry has been edited " + path + " with data: " + data.toString());
-                } else {
-                    Log.w("dsh", "new messages " + data.toString());
-                    Message m = new Message(
-                            data.getAsJsonObject().get("writer").getAsString(),
-                            data.getAsJsonObject().get("contents").getAsString()
-                    );
-                    messages.add(m);
-                    adapter.add(m);
-                }
+            @Override
+            public void onEntryRemoved(String listName, String entry, int position) {
+                // we don't support entries being removed yet
+            }
 
+            @Override
+            public void onEntryMoved(String listName, String entry, int position) {
+                // not concerned about this in a chat application
             }
         });
+
+        postButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String input = textField.getText().toString();
+                if (input.isEmpty()) {
+                    return;
+                }
+
+                String msgName = stateRegistry.getCurrentChatName() + "/" + UUID.randomUUID();
+                Record msgRecord = client.record.getRecord(msgName);
+                Log.w("dsh", "writing: " + input);
+                Log.w("dsh", "record name: " + msgName);
+                Log.w("dsh", "adding " + msgName + " to list: " + stateRegistry.getCurrentChatName());
+                Message message = new Message(
+                        stateRegistry.getEmail(),
+                        input,
+                        stateRegistry.getUserId()
+                );
+                msgRecord.set(stateRegistry.getGson().toJsonTree(message));
+                stateRegistry.getCurrentChatList().addEntry(msgName);
+                textField.setText("");
+            }
+        });
+    }
+
+    private void initialiseChat(String chatName, List chatList) {
+        String uuid = UUID.randomUUID().toString();
+        String welcomeRecordName = chatName + "/" + uuid;
+        Record welcomeRecord = client.record.getRecord(welcomeRecordName);
+        Message welcomeMessage = new Message(
+                "Welcome Robot",
+                "Welcome to the beginning of this chat!",
+                uuid
+        );
+        JsonElement jsonMsg = stateRegistry.getGson().toJsonTree(welcomeMessage);
+        Log.w("dsh", "initialising chat " + chatName + " with message " + jsonMsg.toString());
+        welcomeRecord.set(jsonMsg);
+        chatList.addEntry(welcomeRecordName);
     }
 }

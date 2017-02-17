@@ -47,6 +47,7 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -222,11 +223,9 @@ public class LoginActivity extends AppCompatActivity {
     private void createUserAccount(JsonObject credentials) {
         Log.w("dsh", credentials.get("email") + " not logged in, creating user account");
 
-        User user;
         URL url = null;
         HttpURLConnection conn = null;
         BufferedWriter writer;
-        BufferedReader reader;
 
         try {
             String endpoint = "https://api.dsh.cloud/api/v1/user-auth/signup/" + ctx.getString(R.string.dsh_api_key);
@@ -243,24 +242,12 @@ public class LoginActivity extends AppCompatActivity {
             writer.write(credentials.toString());
             writer.flush();
 
-            int responseCode=conn.getResponseCode();
+            int responseCode = conn.getResponseCode();
 
-            String response = "";
-            if (responseCode == 201) {
-                String line;
-                reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                while ((line=reader.readLine()) != null) {
-                    response+=line;
-                }
-                Log.w("dsh", "response data " + response);
+            if (responseCode != 201) {
+                Log.w("dsh", "error creating user");
+            }
 
-                writer.close();
-                reader.close();
-                conn.disconnect();
-            }
-            else {
-                Log.w("dsh", "response code received " + responseCode);
-            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -304,6 +291,8 @@ public class LoginActivity extends AppCompatActivity {
 
             result = client.login(credentials);
 
+            Log.w("dsh", result.getData() + " " + result.loggedIn());
+
             if (!result.loggedIn()) {
                 Log.w("dsh", credentials.get("email") + " failed to login");
                 createUserAccount(credentials);
@@ -321,13 +310,17 @@ public class LoginActivity extends AppCompatActivity {
             String email = credentials.get("email").getAsString();
 
             stateRegistry.setUserId(userId);
+            stateRegistry.setEmail(email);
 
             User user = new User(userId, email, true);
             Record record = client.record.getRecord("users/" + userId);
             record.set(stateRegistry.getGson().toJsonTree(user));
 
             List users = client.record.getList("users");
-            users.addEntry(userId);
+
+            if ( !Arrays.asList(users.getEntries()).contains(userId) ) {
+                users.addEntry(userId);
+            }
 
             return true;
         }

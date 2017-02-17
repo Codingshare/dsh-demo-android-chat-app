@@ -5,15 +5,34 @@
     
     <ListView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dip"
+        android:layout_weight="1"
         android:id="@+id/chat_list">
 
+
+
     </ListView>
-    
-    <EditText
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minLines="1"
-        android:id="@+id/input_message"/>
+        android:orientation="horizontal"
+        android:layout_weight="0">
+
+        <EditText
+            android:layout_width="0dip"
+            android:layout_height="wrap_content"
+            android:minLines="1"
+            android:layout_weight="1"
+            android:id="@+id/input_message"/>
+
+        <Button
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:layout_weight="0"
+            android:text="Send"
+            android:id="@+id/post"/>
+
+    </LinearLayout>
 
 </LinearLayout>

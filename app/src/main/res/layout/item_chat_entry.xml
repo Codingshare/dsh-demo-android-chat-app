@@ -7,10 +7,15 @@
         android:id="@+id/contents"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:gravity="start"
+        android:textSize="30sp"
         android:text="" />
     <TextView
-        android:id="@+id/writer"
+        android:id="@+id/writerEmail"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:gravity="end"
+        android:textSize="10sp"
+        android:textColor="#737373"
         android:text="" />
 </LinearLayout>

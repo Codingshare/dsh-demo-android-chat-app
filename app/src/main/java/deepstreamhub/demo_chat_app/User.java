@@ -33,4 +33,13 @@ public class User {
     public void setOnline(boolean online) {
         this.online = online;
     }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id='" + id + '\'' +
+                ", email='" + email + '\'' +
+                ", online=" + online +
+                '}';
+    }
 }
