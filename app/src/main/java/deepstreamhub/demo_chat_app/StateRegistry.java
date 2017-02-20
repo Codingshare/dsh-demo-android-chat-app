@@ -3,10 +3,7 @@ package deepstreamhub.demo_chat_app;
 import com.google.gson.Gson;
 
 import io.deepstream.List;
-
-/**
- * Created by alexharley on 16/02/17.
- */
+import io.deepstream.Record;
 
 public class StateRegistry {
 
