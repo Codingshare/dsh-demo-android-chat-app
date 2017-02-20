@@ -49,13 +49,7 @@ public class ChatActivity extends AppCompatActivity {
     private StateRegistry stateRegistry;
     private Button postButton;
     private EditText textField;
-    private TextWatcher typingWatcher;
     private TextView isTypingField;
-    /**
-     * ATTENTION: This was auto-generated to implement the App Indexing API.
-     * See https://g.co/AppIndexing/AndroidStudio for more information.
-     */
-    private GoogleApiClient client2;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -274,6 +268,12 @@ public class ChatActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // todo: unsubscribe all records
     }
 
     private void updateItemInList(final int position, final String editedContent, final ArrayList<Message> messages, final ChatAdapter adapter) {
