@@ -1,6 +1,7 @@
 package deepstreamhub.demo_chat_app;
 
 import android.content.Context;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
@@ -9,11 +10,24 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
+
+import com.google.android.gms.appindexing.Action;
+import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.appindexing.Thing;
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.UUID;
+
+import io.deepstream.DeepstreamClient;
+import io.deepstream.DeepstreamFactory;
+import io.deepstream.List;
+import io.deepstream.ListEntryChangedListener;
+import io.deepstream.Record;
 
 
 public class ChatActivity extends AppCompatActivity {
@@ -24,6 +38,11 @@ public class ChatActivity extends AppCompatActivity {
     private StateRegistry stateRegistry;
     private Button postButton;
     private EditText textField;
+    /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
+    private GoogleApiClient client2;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -93,18 +112,23 @@ public class ChatActivity extends AppCompatActivity {
 
         chatList.subscribe(new ListEntryChangedListener() {
             @Override
-            public void onEntryAdded(String listName, String entry, int position) {
-                Log.w("dsh", "message added " + entry);
-                Record record = client.record.getRecord(listName + "/" + entry);
-                JsonObject msgJson = record.get().getAsJsonObject();
-                Message message = new Message(
-                        msgJson.get("email").getAsString(),
-                        msgJson.get("content").getAsString(),
-                        msgJson.get("id").getAsString()
-                );
-                Log.w("dsh", "new message " + message.toString());
-                messages.add(message);
-                adapter.add(message);
+            public void onEntryAdded(String listName, final String entry, int position) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.w("dsh", "message added " + entry);
+                        Record record = client.record.getRecord(entry);
+                        JsonObject msgJson = record.get().getAsJsonObject();
+                        Log.w("dsh", "new message " + msgJson.toString());
+                        final Message message = new Message(
+                                msgJson.get("email").getAsString(),
+                                msgJson.get("content").getAsString(),
+                                msgJson.get("id").getAsString()
+                        );
+                        messages.add(message);
+                        adapter.notifyDataSetChanged();
+                    }
+                });
             }
 
             @Override

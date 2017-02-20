@@ -277,6 +277,12 @@ public class LoginActivity extends AppCompatActivity {
             try {
                 Log.w("dsh", "connecting client on url: " + endpointUrl);
                 client = deepstreamFactory.getClient(endpointUrl);
+                client.setRuntimeErrorHandler(new DeepstreamRuntimeErrorHandler() {
+                    @Override
+                    public void onException(Topic topic, Event event, String s) {
+                        Log.w("dsh", "Error:" + topic + event.toString() + s);
+                    }
+                });
             } catch (URISyntaxException e1) {
                 Log.w("dsh", "error connecting to dsh");
                 return false;
