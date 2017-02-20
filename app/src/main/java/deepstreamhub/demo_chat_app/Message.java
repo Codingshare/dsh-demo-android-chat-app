@@ -6,11 +6,13 @@ public class Message {
     private String email;
     private String content;
     private String id;
+    private String msgId;
 
-    public Message(String email, String content, String id) {
+    public Message(String email, String content, String id, String msgId) {
         this.email = email;
         this.content = content;
         this.id = id;
+        this.msgId = msgId;
     }
 
     public String getWriterEmail() {
@@ -35,6 +37,14 @@ public class Message {
 
     public void setWriterId(String id) {
         this.id = id;
+    }
+
+    public String getMsgId() {
+        return msgId;
+    }
+
+    public void setMsgId(String msgId) {
+        this.msgId = msgId;
     }
 
     @Override

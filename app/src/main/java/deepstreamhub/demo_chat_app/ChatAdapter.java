@@ -33,4 +33,5 @@ public class ChatAdapter extends ArrayAdapter {
 
         return convertView;
     }
+
 }

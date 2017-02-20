@@ -1,18 +1,23 @@
 package deepstreamhub.demo_chat_app;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.widget.AbsListView;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.appindexing.Action;
 import com.google.android.gms.appindexing.AppIndex;
@@ -29,6 +34,7 @@ import java.util.UUID;
 import io.deepstream.DeepstreamClient;
 import io.deepstream.DeepstreamFactory;
 import io.deepstream.List;
+import io.deepstream.ListChangedListener;
 import io.deepstream.ListEntryChangedListener;
 import io.deepstream.MergeStrategy;
 import io.deepstream.Record;
@@ -56,7 +62,7 @@ public class ChatActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        ctx = getApplicationContext();
+        ctx = this;
         factory = DeepstreamFactory.getInstance();
         stateRegistry = StateRegistry.getInstance();
 
@@ -130,38 +136,80 @@ public class ChatActivity extends AppCompatActivity {
         Log.w("dsh", entries.length + " entries in chat: " + chatName);
         Log.w("dsh", Arrays.toString(entries));
         final ArrayList<Message> messages = new ArrayList<>();
+        final ChatAdapter adapter = new ChatAdapter(this, messages);
 
-        for (String message : entries) {
+        for (int i = 0; i < entries.length; i++) {
+            String message = entries[i];
             Record msgRecord = client.record.getRecord(message);
+            msgRecord.subscribe("content", new ChatItemUpdate(i, messages, adapter));
             JsonObject msgJson = msgRecord.get().getAsJsonObject();
             Log.w("dsh", "message: " + msgJson.toString());
             Message m = new Message(
                     msgJson.get("email").getAsString(),
                     msgJson.get("content").getAsString(),
-                    msgJson.get("id").getAsString()
+                    msgJson.get("id").getAsString(),
+                    msgJson.get("msgId").getAsString()
             );
             messages.add(m);
         }
 
-        final ChatAdapter adapter = new ChatAdapter(this, messages);
+
 
         final ListView listView = (ListView) findViewById(R.id.chat_list);
         listView.setAdapter(adapter);
 
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
+                Message currentMsg = messages.get(position);
+                final Record msgRecord = client.record.getRecord(stateRegistry.getCurrentChatName() + "/" + currentMsg.getMsgId());
+                Log.w("dsh", "position:" + position + " getting record " + stateRegistry.getCurrentChatName() + "/" + currentMsg.getMsgId());
+                Log.w("dsh", msgRecord.get().toString());
+
+                // don't want to allow editing other peoples messages
+                // put link to permissioning tutorial here
+                if (!currentMsg.getWriterId().equals(stateRegistry.getUserId())) {
+                    return;
+                }
+
+                final EditText editText = new EditText(getApplicationContext());
+                editText.setText(currentMsg.getContent());
+                new AlertDialog.Builder(ctx)
+                        //.setTitle("")
+                        //.setMessage("Paste in the link of an image to moustachify!")
+                        .setView(editText)
+                        .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int whichButton) {
+                                String newContent = editText.getText().toString();
+                                Log.w("dsh", "setting msg content to:" + newContent);
+                                msgRecord.set("content", newContent);
+                            }
+                        })
+                        .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int whichButton) {
+                            }
+                        })
+                        .show();
+            }
+        });
+
         chatList.subscribe(new ListEntryChangedListener() {
             @Override
-            public void onEntryAdded(String listName, final String entry, int position) {
+            public void onEntryAdded(String listName, final String entry, final int position) {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         Log.w("dsh", "message added " + entry);
                         Record record = client.record.getRecord(entry);
+                        record.subscribe("content", new ChatItemUpdate(position, messages, adapter));
                         JsonObject msgJson = record.get().getAsJsonObject();
                         Log.w("dsh", "new message " + msgJson.toString());
                         final Message message = new Message(
                                 msgJson.get("email").getAsString(),
                                 msgJson.get("content").getAsString(),
-                                msgJson.get("id").getAsString()
+                                msgJson.get("id").getAsString(),
+                                msgJson.get("msgId").getAsString()
                         );
                         messages.add(message);
                         adapter.notifyDataSetChanged();
@@ -187,8 +235,8 @@ public class ChatActivity extends AppCompatActivity {
                 if (input.isEmpty()) {
                     return;
                 }
-
-                String msgName = stateRegistry.getCurrentChatName() + "/" + UUID.randomUUID();
+                String msgId = UUID.randomUUID().toString();
+                String msgName = stateRegistry.getCurrentChatName() + "/" + msgId;
                 Record msgRecord = client.record.getRecord(msgName);
                 Log.w("dsh", "writing: " + input);
                 Log.w("dsh", "record name: " + msgName);
@@ -196,7 +244,8 @@ public class ChatActivity extends AppCompatActivity {
                 Message message = new Message(
                         stateRegistry.getEmail(),
                         input,
-                        stateRegistry.getUserId()
+                        stateRegistry.getUserId(),
+                        msgId
                 );
                 msgRecord.set(stateRegistry.getGson().toJsonTree(message));
                 stateRegistry.getCurrentChatList().addEntry(msgName);
@@ -227,6 +276,17 @@ public class ChatActivity extends AppCompatActivity {
         });
     }
 
+    private void updateItemInList(final int position, final String editedContent, final ArrayList<Message> messages, final ChatAdapter adapter) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Message msgToEdit = messages.get(position);
+                msgToEdit.setContent(editedContent);
+                adapter.notifyDataSetChanged();
+            }
+        });
+    }
+
     private void initialiseChat(String chatName, List chatList, String theirId) {
         // welcome message
         String uuid = UUID.randomUUID().toString();
@@ -235,6 +295,7 @@ public class ChatActivity extends AppCompatActivity {
         Message welcomeMessage = new Message(
                 "Welcome Robot",
                 "Welcome to the beginning of this chat!",
+                uuid,
                 uuid
         );
         JsonElement jsonMsg = stateRegistry.getGson().toJsonTree(welcomeMessage);
@@ -249,5 +310,24 @@ public class ChatActivity extends AppCompatActivity {
         userMetaData.addProperty("email", stateRegistry.getEmail());
         stateRecord.set(stateRegistry.getUserId(), userMetaData);
         stateRecord.set(theirId, userMetaData);
+    }
+
+    private class ChatItemUpdate implements RecordPathChangedCallback {
+
+        private int position;
+        private ArrayList<Message> messages;
+        private ChatAdapter adapter;
+
+        ChatItemUpdate(int position, ArrayList<Message> messages, ChatAdapter adapter) {
+            this.position = position;
+            this.messages = messages;
+            this.adapter = adapter;
+        }
+
+        @Override
+        public void onRecordPathChanged(String s, String s1, JsonElement data) {
+            Log.w("dsh", "Updating item:" + position + " to:" + data.getAsString());
+            updateItemInList(position, data.getAsString(), messages, adapter);
+        }
     }
 }
