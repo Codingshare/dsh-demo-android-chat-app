@@ -31,6 +31,7 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -246,6 +247,7 @@ public class LoginActivity extends AppCompatActivity {
 
             if (responseCode != 201) {
                 Log.w("dsh", "error creating user");
+                return;
             }
 
         } catch (Exception e) {
@@ -300,16 +302,16 @@ public class LoginActivity extends AppCompatActivity {
             Log.w("dsh", result.getData() + " " + result.loggedIn());
 
             if (!result.loggedIn()) {
-                Log.w("dsh", credentials.get("email") + " failed to login");
+                // either incorrect credentials entered
+                //if (result.getErrorEvent() == Event.INVALID_AUTH_DATA) {
+                //    Toast.makeText(getApplicationContext(), "Incorrect login details", Toast.LENGTH_LONG).show();
+                //    return false;
+                //}
+                // or the user doesn't exist so we create them and log them in
                 createUserAccount(credentials);
-
                 result = client.login(credentials);
-
-                if (!result.loggedIn()) {
-                    return false;
-                }
             }
-
+            Log.w("dsh", result.getData().toString());
             JsonObject clientData = (JsonObject) stateRegistry.getGson().toJsonTree(result.getData());
             Log.w("dsh", "received client data " + clientData.toString());
             String userId = clientData.get("id").getAsString();

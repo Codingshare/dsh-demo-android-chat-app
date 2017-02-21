@@ -14,6 +14,6 @@
         completions."
     </string>
 
-    <string name="dsh_login_url">ws://154.dsh.cloud?apiKey=b0011291-6132-4532-9c58-fb7989fc8ac8</string>
-    <string name="dsh_api_key">b0011291-6132-4532-9c58-fb7989fc8ac8</string>
+    <string name="dsh_login_url">Your DSH URL here</string>
+    <string name="dsh_api_key">Your DSH API key here</string>
 </resources>

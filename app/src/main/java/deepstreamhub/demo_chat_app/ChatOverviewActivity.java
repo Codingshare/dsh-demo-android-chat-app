@@ -31,8 +31,6 @@ public class ChatOverviewActivity extends AppCompatActivity {
     private Context ctx;
     private StateRegistry stateRegistry;
 
-
-
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -90,12 +88,18 @@ public class ChatOverviewActivity extends AppCompatActivity {
 
         userIds.subscribe(new ListEntryChangedListener() {
             @Override
-            public void onEntryAdded(String listName, String userId, int position) {
-                Record userRecord = client.record.getRecord("users/" + userId);
-                String email = userRecord.get("email").getAsString();
-                String id = userRecord.get("id").getAsString();
-                boolean online = userRecord.get("online").getAsBoolean();
-                adapter.add(new User(id, email, online));
+            public void onEntryAdded(String listName, final String userId, int position) {
+                Log.w("dsh", "onEntryAdded:" + userId);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Record userRecord = client.record.getRecord("users/" + userId);
+                        String email = userRecord.get("email").getAsString();
+                        String id = userRecord.get("id").getAsString();
+                        boolean online = userRecord.get("online").getAsBoolean();
+                        adapter.add(new User(id, email, online));
+                    }
+                });
             }
 
             @Override
