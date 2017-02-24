@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical" android:layout_width="match_parent"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
     android:layout_height="match_parent">
 
     <TextView
@@ -9,13 +9,18 @@
         android:layout_height="wrap_content"
         android:gravity="start"
         android:textSize="30sp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentLeft="true"
         android:text="" />
     <TextView
         android:id="@+id/writerEmail"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:gravity="end"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
         android:textSize="15sp"
         android:textColor="#737373"
+        android:layout_toRightOf="@+id/contents"
+        android:layout_toEndOf="@+id/contents"
         android:text="" />
-</LinearLayout>
+</RelativeLayout>

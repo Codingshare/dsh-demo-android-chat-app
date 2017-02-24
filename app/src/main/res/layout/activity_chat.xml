@@ -37,7 +37,8 @@
                 android:layout_height="wrap_content"
                 android:minLines="1"
                 android:layout_weight="1"
-                android:id="@+id/input_message"/>
+                android:id="@+id/input_message"
+                />
 
             <Button
                 android:layout_height="wrap_content"

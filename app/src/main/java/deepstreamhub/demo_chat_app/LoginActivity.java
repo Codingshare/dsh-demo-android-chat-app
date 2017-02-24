@@ -60,6 +60,7 @@ import io.deepstream.DeepstreamRuntimeErrorHandler;
 import io.deepstream.Event;
 import io.deepstream.List;
 import io.deepstream.LoginResult;
+import io.deepstream.MergeStrategy;
 import io.deepstream.Record;
 import io.deepstream.Topic;
 
@@ -311,7 +312,6 @@ public class LoginActivity extends AppCompatActivity {
                 createUserAccount(credentials);
                 result = client.login(credentials);
             }
-            Log.w("dsh", result.getData().toString());
             JsonObject clientData = (JsonObject) stateRegistry.getGson().toJsonTree(result.getData());
             Log.w("dsh", "received client data " + clientData.toString());
             String userId = clientData.get("id").getAsString();
@@ -322,6 +322,7 @@ public class LoginActivity extends AppCompatActivity {
 
             User user = new User(userId, email, true);
             Record record = client.record.getRecord("users/" + userId);
+            record.setMergeStrategy(MergeStrategy.REMOTE_WINS);
             record.set(stateRegistry.getGson().toJsonTree(user));
 
             List users = client.record.getList("users");

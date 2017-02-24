@@ -2,6 +2,7 @@ package deepstreamhub.demo_chat_app;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
@@ -11,8 +12,17 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
+import com.google.android.gms.appindexing.Action;
+import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.appindexing.Thing;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.gson.JsonElement;
+
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 import io.deepstream.DeepstreamClient;
 import io.deepstream.DeepstreamFactory;
@@ -20,8 +30,10 @@ import io.deepstream.Event;
 import io.deepstream.List;
 import io.deepstream.ListChangedListener;
 import io.deepstream.ListEntryChangedListener;
+import io.deepstream.PresenceEventListener;
 import io.deepstream.Record;
 import io.deepstream.RecordEventsListener;
+import io.deepstream.RecordPathChangedCallback;
 
 
 public class ChatOverviewActivity extends AppCompatActivity {
@@ -30,6 +42,8 @@ public class ChatOverviewActivity extends AppCompatActivity {
     private DeepstreamClient client;
     private Context ctx;
     private StateRegistry stateRegistry;
+    private UserAdapter adapter;
+    private LinkedHashMap<String, User> users;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -46,33 +60,16 @@ public class ChatOverviewActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        final List userIds = client.record.getList("users");
-
-        final ArrayList<User> users = new ArrayList();
-
-        for (int i = 0; i < userIds.getEntries().length; i++) {
-            Record userRecord = client.record.getRecord("users/" + userIds.getEntries()[i]);
-            String email = userRecord.get("email").getAsString();
-            String id = userRecord.get("id").getAsString();
-            boolean online = userRecord.get("online").getAsBoolean();
-            users.add(new User(id, email, online));
-        }
-
-        // users don't want to see themselves in list
-        int index = -1;
-        for (int i = 0; i < users.size(); i++) {
-            User u = users.get(i);
-            if (u.getId().equals(stateRegistry.getUserId())) {
-                index = i;
-                break;
+        final List userList = client.record.getList("users");
+        final String[] userIds = userList.getEntries();
+        users = new LinkedHashMap<>();
+        for (String userId : userIds) {
+            if (!userId.equals(stateRegistry.getUserId())) {
+                addUser(userId);
             }
         }
-        users.remove(index);
-
         Log.w("dsh", "users in list " + users.toString());
-        final UserAdapter adapter = new UserAdapter(this, users);
-
-
+        adapter = new UserAdapter(this, users);
         ListView listView = (ListView) findViewById(R.id.user_list);
         listView.setAdapter(adapter);
 
@@ -80,31 +77,29 @@ public class ChatOverviewActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent i = new Intent(ctx, ChatActivity.class);
-                String userId = users.get(position).getId();
+                java.util.List<String> idList = new ArrayList<String>(users.keySet());
+                String userId = idList.get(position);
                 i.putExtra("userId", userId);
                 startActivity(i);
             }
         });
 
-        userIds.subscribe(new ListEntryChangedListener() {
+        userList.subscribe(new ListEntryChangedListener() {
             @Override
-            public void onEntryAdded(String listName, final String userId, int position) {
+            public void onEntryAdded(String listName, final String userId, final int position) {
                 Log.w("dsh", "onEntryAdded:" + userId);
+                addUser(userId);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Record userRecord = client.record.getRecord("users/" + userId);
-                        String email = userRecord.get("email").getAsString();
-                        String id = userRecord.get("id").getAsString();
-                        boolean online = userRecord.get("online").getAsBoolean();
-                        adapter.add(new User(id, email, online));
+                        adapter.notifyDataSetChanged();
                     }
                 });
             }
 
             @Override
             public void onEntryRemoved(String s, String s1, int i) {
-                // todo
+                // not in scope of tutorial
             }
 
             @Override
@@ -112,5 +107,46 @@ public class ChatOverviewActivity extends AppCompatActivity {
                 // not relevant
             }
         });
+
+        client.presence.subscribe(new PresenceEventListener() {
+            @Override
+            public void onClientLogin(String userId) {
+                Log.w("dsh", "onClientLogin:" + userId);
+                User user = users.get(userId);
+                user.setOnline(true);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        adapter.notifyDataSetChanged();
+                    }
+                });
+            }
+
+            @Override
+            public void onClientLogout(String userId) {
+                Log.w("dsh", "onClientLogout:" + userId);
+                User user = users.get(userId);
+                user.setOnline(false);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        adapter.notifyDataSetChanged();
+                    }
+                });
+            }
+        });
+    }
+
+    private void addUser(String id) {
+        Record userRecord = client.record.getRecord("users/" + id);
+        Log.w("dsh", userRecord.get().getAsJsonObject().toString());
+        String email = userRecord.get("email").getAsString();
+        boolean online = userRecord.get("online").getAsBoolean();
+        users.put(id, new User(
+                id,
+                email,
+                online)
+        );
+        userRecord.discard();
     }
 }

@@ -27,7 +27,6 @@ public class ChatAdapter extends ArrayAdapter {
 
         TextView contents = (TextView) convertView.findViewById(R.id.contents);
         TextView writer = (TextView) convertView.findViewById(R.id.writerEmail);
-        Log.w("dsh", "getView(): " + message.getContent());
         contents.setText(message.getContent());
         writer.setText(message.getWriterEmail());
 
