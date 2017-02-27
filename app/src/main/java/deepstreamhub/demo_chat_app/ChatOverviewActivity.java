@@ -44,6 +44,9 @@ public class ChatOverviewActivity extends AppCompatActivity {
     private StateRegistry stateRegistry;
     private UserAdapter adapter;
     private LinkedHashMap<String, User> users;
+    private List userList;
+    private ListEntryChangedListener entryChangedListener;
+    private PresenceEventListener presenceEventListener;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -60,7 +63,7 @@ public class ChatOverviewActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        final List userList = client.record.getList("users");
+        userList = client.record.getList("users");
         final String[] userIds = userList.getEntries();
         users = new LinkedHashMap<>();
         for (String userId : userIds) {
@@ -79,19 +82,21 @@ public class ChatOverviewActivity extends AppCompatActivity {
                 Intent i = new Intent(ctx, ChatActivity.class);
                 java.util.List<String> idList = new ArrayList<String>(users.keySet());
                 String userId = idList.get(position);
+                User user = users.get(userId);
                 i.putExtra("userId", userId);
+                i.putExtra("userEmail", user.getEmail());
                 startActivity(i);
             }
         });
 
-        userList.subscribe(new ListEntryChangedListener() {
+        entryChangedListener = new ListEntryChangedListener() {
             @Override
             public void onEntryAdded(String listName, final String userId, final int position) {
                 Log.w("dsh", "onEntryAdded:" + userId);
-                addUser(userId);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        addUser(userId);
                         adapter.notifyDataSetChanged();
                     }
                 });
@@ -106,13 +111,18 @@ public class ChatOverviewActivity extends AppCompatActivity {
             public void onEntryMoved(String s, String s1, int i) {
                 // not relevant
             }
-        });
+        };
+        userList.subscribe(entryChangedListener);
 
-        client.presence.subscribe(new PresenceEventListener() {
+        presenceEventListener = new PresenceEventListener() {
             @Override
             public void onClientLogin(String userId) {
                 Log.w("dsh", "onClientLogin:" + userId);
                 User user = users.get(userId);
+                // happens first time a user connects
+                if (user == null) {
+                   return;
+                }
                 user.setOnline(true);
                 runOnUiThread(new Runnable() {
                     @Override
@@ -134,7 +144,16 @@ public class ChatOverviewActivity extends AppCompatActivity {
                     }
                 });
             }
-        });
+        };
+        client.presence.subscribe(presenceEventListener);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        userList.unsubscribe(entryChangedListener);
+        client.presence.unsubscribe(presenceEventListener);
+        userList.discard();
     }
 
     private void addUser(String id) {

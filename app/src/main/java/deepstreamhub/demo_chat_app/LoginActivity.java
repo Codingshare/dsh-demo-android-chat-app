@@ -49,15 +49,20 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import io.deepstream.ConfigOptions;
 import io.deepstream.ConnectionState;
 import io.deepstream.ConnectionStateListener;
 import io.deepstream.DeepstreamClient;
 import io.deepstream.DeepstreamFactory;
 import io.deepstream.DeepstreamRuntimeErrorHandler;
 import io.deepstream.Event;
+import io.deepstream.InvalidDeepstreamConfig;
 import io.deepstream.List;
 import io.deepstream.LoginResult;
 import io.deepstream.MergeStrategy;

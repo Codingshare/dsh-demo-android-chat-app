@@ -16,8 +16,6 @@ public class StateRegistry {
     private String userId;
     private String email;
     private Gson gson;
-    private List currentChatList;
-    private String currentChatName;
 
     StateRegistry() {
     }
@@ -38,27 +36,11 @@ public class StateRegistry {
         this.gson = gson;
     }
 
-    public List getCurrentChatList() {
-        return currentChatList;
-    }
-
-    public void setCurrentChatList(List currentChatList) {
-        this.currentChatList = currentChatList;
-    }
-
     public String getEmail() {
         return email;
     }
 
     public void setEmail(String email) {
         this.email = email;
-    }
-
-    public String getCurrentChatName() {
-        return currentChatName;
-    }
-
-    public void setCurrentChatName(String currentChatName) {
-        this.currentChatName = currentChatName;
     }
 }
