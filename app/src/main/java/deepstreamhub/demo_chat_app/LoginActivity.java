@@ -331,9 +331,10 @@ public class LoginActivity extends AppCompatActivity {
             record.set(stateRegistry.getGson().toJsonTree(user));
 
             List users = client.record.getList("users");
+            users.setEntries(new String[]{});
 
-            if ( !Arrays.asList(users.getEntries()).contains(userId) ) {
-                users.addEntry(userId);
+            if ( !Arrays.asList(users.getEntries()).contains("users/" + userId) ) {
+                users.addEntry("users/" + userId);
             }
 
             return true;

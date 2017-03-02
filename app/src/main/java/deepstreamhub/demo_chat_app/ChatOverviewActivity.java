@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 
 import io.deepstream.DeepstreamClient;
+import io.deepstream.DeepstreamError;
 import io.deepstream.DeepstreamFactory;
 import io.deepstream.Event;
 import io.deepstream.List;
@@ -47,6 +48,7 @@ public class ChatOverviewActivity extends AppCompatActivity {
     private List userList;
     private ListEntryChangedListener entryChangedListener;
     private PresenceEventListener presenceEventListener;
+    private ArrayList<String> connectedUsers;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -63,12 +65,21 @@ public class ChatOverviewActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
+        try {
+            connectedUsers = new ArrayList<String>( Arrays.asList(client.presence.getAll()) );
+        } catch (DeepstreamError deepstreamError) {
+            deepstreamError.printStackTrace();
+        }
+
         userList = client.record.getList("users");
+
         final String[] userIds = userList.getEntries();
+        Log.w("dsh", Arrays.toString(userIds));
         users = new LinkedHashMap<>();
+
         for (String userId : userIds) {
-            if (!userId.equals(stateRegistry.getUserId())) {
-                addUser(userId);
+            if (!userId.equals("users/" + stateRegistry.getUserId())) {
+                addUser(userId.substring(6)); // get rid of leading "users/"
             }
         }
         Log.w("dsh", "users in list " + users.toString());
@@ -96,7 +107,7 @@ public class ChatOverviewActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        addUser(userId);
+                        addUser(userId.substring(6)); // remove leading "users/"
                         adapter.notifyDataSetChanged();
                     }
                 });
@@ -118,6 +129,7 @@ public class ChatOverviewActivity extends AppCompatActivity {
             @Override
             public void onClientLogin(String userId) {
                 Log.w("dsh", "onClientLogin:" + userId);
+                connectedUsers.add(userId);
                 User user = users.get(userId);
                 // happens first time a user connects
                 if (user == null) {
@@ -135,6 +147,7 @@ public class ChatOverviewActivity extends AppCompatActivity {
             @Override
             public void onClientLogout(String userId) {
                 Log.w("dsh", "onClientLogout:" + userId);
+                connectedUsers.remove(userId);
                 User user = users.get(userId);
                 user.setOnline(false);
                 runOnUiThread(new Runnable() {
@@ -157,10 +170,11 @@ public class ChatOverviewActivity extends AppCompatActivity {
     }
 
     private void addUser(String id) {
+        Log.w("dsh", "addUser:" + id);
         Record userRecord = client.record.getRecord("users/" + id);
         Log.w("dsh", userRecord.get().getAsJsonObject().toString());
         String email = userRecord.get("email").getAsString();
-        boolean online = userRecord.get("online").getAsBoolean();
+        boolean online = connectedUsers.indexOf(id) != -1;
         users.put(id, new User(
                 id,
                 email,
