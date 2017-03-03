@@ -235,7 +235,7 @@ public class LoginActivity extends AppCompatActivity {
         BufferedWriter writer;
 
         try {
-            String endpoint = "https://api.dsh.cloud/api/v1/user-auth/signup/" + ctx.getString(R.string.dsh_api_key);
+            String endpoint = "https://api.deepstreamhub.com/api/v1/user-auth/signup/" + ctx.getString(R.string.dsh_api_key);
             url = new URL(endpoint);
 
             conn = (HttpURLConnection) url.openConnection();
